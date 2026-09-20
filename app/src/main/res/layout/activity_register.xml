@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="20dp"
+    android:background="#F5F5F5">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvTituloRegister"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Registro de Usuario"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textColor="#212121"
+            android:layout_marginBottom="16dp" />
+
+        <ImageView
+            android:id="@+id/ivAvatarPreview"
+            android:layout_width="90dp"
+            android:layout_height="90dp"
+            android:layout_gravity="center"
+            android:src="@mipmap/ic_launcher_round"
+            android:contentDescription="Avatar del usuario"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/btnSeleccionarAvatar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="Seleccionar Avatar"
+            android:backgroundTint="#616161"
+            android:layout_marginBottom="16dp" />
+
+        <EditText
+            android:id="@+id/etNombre"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Nombre *"
+            android:inputType="textPersonName"
+            android:layout_marginBottom="10dp" />
+
+        <EditText
+            android:id="@+id/etApellidos"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Apellidos *"
+            android:inputType="textPersonName"
+            android:layout_marginBottom="10dp" />
+
+        <EditText
+            android:id="@+id/etAlias"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Alias / Nickname *"
+            android:inputType="text"
+            android:layout_marginBottom="10dp" />
+
+        <EditText
+            android:id="@+id/etCorreo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Correo Electrónico (Único) *"
+            android:inputType="textEmailAddress"
+            android:layout_marginBottom="10dp" />
+
+        <EditText
+            android:id="@+id/etPassword"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Contraseña (Mínimo 10 car, 1 mayús, 1 min, 1 núm) *"
+            android:inputType="textPassword"
+            android:layout_marginBottom="10dp" />
+
+        <EditText
+            android:id="@+id/etTelefono"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Teléfono (Opcional)"
+            android:inputType="phone"
+            android:layout_marginBottom="10dp" />
+
+        <EditText
+            android:id="@+id/etDireccion"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Dirección (Opcional)"
+            android:inputType="textPostalAddress"
+            android:layout_marginBottom="20dp" />
+
+        <Button
+            android:id="@+id/btnRegistrarCuenta"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Crear Cuenta"
+            android:layout_marginBottom="10dp" />
+
+        <Button
+            android:id="@+id/btnVolverLogin"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Cancelar"
+            android:backgroundTint="#D32F2F" />
+
+    </LinearLayout>
+</ScrollView>

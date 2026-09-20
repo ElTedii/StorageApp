@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp"
+    android:background="#F5F5F5">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvNombreProductoDetalle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Nombre del Producto"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textColor="#212121"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Galería de imágenes (Mínimo 2 según rúbrica) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginBottom="16dp">
+
+            <ImageView
+                android:id="@+id/ivDetalleImg1"
+                android:layout_width="120dp"
+                android:layout_height="120dp"
+                android:src="@android:drawable/ic_menu_report_image"
+                android:background="#E0E0E0"
+                android:layout_marginEnd="12dp"
+                android:contentDescription="Imagen 1 del producto" />
+
+            <ImageView
+                android:id="@+id/ivDetalleImg2"
+                android:layout_width="120dp"
+                android:layout_height="120dp"
+                android:src="@android:drawable/ic_menu_report_image"
+                android:background="#E0E0E0"
+                android:contentDescription="Imagen 2 del producto" />
+        </LinearLayout>
+
+        <!-- Información detallada del Producto -->
+        <TextView
+            android:id="@+id/tvSKUDetalle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="SKU: ABC-12345"
+            android:textSize="16sp"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:id="@+id/tvCategoriaMarcaDetalle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Categoría: Herramientas | Marca: DeWalt"
+            android:textSize="14sp"
+            android:textColor="#616161"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:id="@+id/tvStockActual"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Stock Disponible: 15 unidades"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#2E7D32"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:id="@+id/tvPuntoReordenDetalle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Punto de Reorden: 5 unidades"
+            android:textSize="14sp"
+            android:textColor="#D32F2F"
+            android:layout_marginBottom="16dp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#BDBDBD"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Sección para la Operación de Entradas / Salidas -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Registrar Movimiento de Inventario"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="#212121"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/etCantidadMovimiento"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Cantidad de unidades"
+            android:inputType="number"
+            android:layout_marginBottom="16dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp">
+
+            <Button
+                android:id="@+id/btnEntrada"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Entrada (+)"
+                android:backgroundTint="#388E3C"
+                android:layout_marginEnd="8dp" />
+
+            <Button
+                android:id="@+id/btnSalida"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Salida (-)"
+                android:backgroundTint="#D32F2F" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnVolverDetalle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Volver al Catálogo"
+            android:backgroundTint="#757575" />
+
+    </LinearLayout>
+</ScrollView>

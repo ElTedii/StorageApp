@@ -9,24 +9,57 @@
         android:id="@+id/tvTituloConsulta"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Consulta de Inventario"
-        android:textSize="20sp"
+        android:text="Catálogo de Productos"
+        android:textSize="22sp"
         android:textStyle="bold"
-        android:layout_marginBottom="20dp" />
+        android:layout_marginBottom="12dp" />
 
-    <TextView
-        android:id="@+id/tvResultado"
+    <!-- Buscador de productos -->
+    <EditText
+        android:id="@+id/etBuscar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Buscar por nombre, SKU o categoría..."
+        android:drawableStart="@android:drawable/ic_menu_search"
+        android:inputType="text"
+        android:layout_marginBottom="8dp" />
+
+    <!-- Opciones de filtrado y ordenamiento -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="12dp">
+
+        <Spinner
+            android:id="@+id/spFiltroCategoria"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:spinnerMode="dropdown" />
+
+        <Spinner
+            android:id="@+id/spOrdenamiento"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:spinnerMode="dropdown" />
+    </LinearLayout>
+
+    <!-- Lista dinámica de productos (RecyclerView) -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvProductos"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:text="Aquí se mostrarán los datos almacenados..."
-        android:textSize="16sp"
-        android:padding="8dp" />
+        android:scrollbars="vertical"
+        android:layout_marginBottom="12dp" />
 
     <Button
         android:id="@+id/btnVolverConsulta"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Volver al Menú" />
+        android:text="Volver al Menú"
+        android:backgroundTint="#757575" />
 
 </LinearLayout>

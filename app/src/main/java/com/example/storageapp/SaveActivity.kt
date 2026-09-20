@@ -11,23 +11,26 @@ class SaveActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_save)
 
-        val etCodigo = findViewById<EditText>(R.id.etCodigo)
+        val etSKU = findViewById<EditText>(R.id.etSKU)
         val etNombre = findViewById<EditText>(R.id.etNombre)
-        val etCantidad = findViewById<EditText>(R.id.etCantidad)
-        val btnGuardar = findViewById<Button>(R.id.btnGuardar)
+        val etUnidades = findViewById<EditText>(R.id.etUnidades)
+        val etPuntoReorden = findViewById<EditText>(R.id.etPuntoReorden)
+
+        val btnGuardarBorrador = findViewById<Button>(R.id.btnGuardarBorrador)
+        val btnPublicar = findViewById<Button>(R.id.btnPublicar)
         val btnVolver = findViewById<Button>(R.id.btnVolverSave)
 
-        btnGuardar.setOnClickListener {
-            val codigo = etCodigo.text.toString()
-            val nombre = etNombre.text.toString()
-            val cantidad = etCantidad.text.toString()
+        btnGuardarBorrador.setOnClickListener {
+            Toast.makeText(this, "Guardado localmente como borrador", Toast.LENGTH_SHORT).show()
+            finish()
+        }
 
-            if (codigo.isNotEmpty() && nombre.isNotEmpty() && cantidad.isNotEmpty()) {
-                // Lógica de procesamiento/guardado aquí
-                Toast.makeText(this, "Datos capturados correctamente", Toast.LENGTH_SHORT).show()
-                finish() // Cierra la Activity actual y regresa a MainActivity
+        btnPublicar.setOnClickListener {
+            if (etSKU.text.isNotEmpty() && etNombre.text.isNotEmpty() && etUnidades.text.isNotEmpty()) {
+                Toast.makeText(this, "Producto publicado con éxito", Toast.LENGTH_SHORT).show()
+                finish()
             } else {
-                Toast.makeText(this, "Por favor llena todos los campos", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Por favor completa los campos obligatorios", Toast.LENGTH_SHORT).show()
             }
         }
 
