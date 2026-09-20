@@ -38,15 +38,7 @@ Aplicación móvil nativa para Android desarrollada en Kotlin que permite gestio
 ## Tecnologías y Herramientas Utilizadas
 
 * **Lenguaje:** Kotlin
-* **IDE:** Android Studio (Ladybug / Iguana)
-* **Diseño UI:** XML Layouts (`ScrollView`, `LinearLayout`, `EditText`, `Button`, `ImageView`)
-* **SDK Mínimo:** Android 8.0 (API Level 26)
-* **SDK Objetivo:** Android 14 / 15 (API Level 34/35)
-
----
-
-## Requisitos Previos e Instalación
-
-1. **Clonar el repositorio:**
-   ```bash
-   git clone [https://github.com/tu-usuario/StorageApp.git](https://github.com/tu-usuario/StorageApp.git)
+* **IDE:** Android Studio
+* **Diseño UI:** XML Layouts
+* **SDK Mínimo:** Android 8.0 
+* **SDK Objetivo:** Android 14
