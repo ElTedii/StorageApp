@@ -9,29 +9,43 @@ import androidx.appcompat.app.AppCompatActivity
 
 class DetailActivity : AppCompatActivity() {
 
-    // Variable simulada de stock actual en existencia
     private var stockActual = 15
-    private val puntoReorden = 5
+    private var puntoReorden = 5
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_detail)
 
+        val tvNombre = findViewById<TextView>(R.id.tvNombreProductoDetalle)
+        val tvSKU = findViewById<TextView>(R.id.tvSKUDetalle)
         val tvStock = findViewById<TextView>(R.id.tvStockActual)
+        val tvReorden = findViewById<TextView>(R.id.tvPuntoReordenDetalle)
         val etCantidad = findViewById<EditText>(R.id.etCantidadMovimiento)
         val btnEntrada = findViewById<Button>(R.id.btnEntrada)
         val btnSalida = findViewById<Button>(R.id.btnSalida)
         val btnVolver = findViewById<Button>(R.id.btnVolverDetalle)
 
-        // Registrar ENTRADA de inventario
+        // Recuperar datos enviados desde ViewActivity
+        intent.extras?.let {
+            val nombre = it.getString("NOMBRE", "Taladro Percutor 20V")
+            val sku = it.getString("SKU", "SK-TL-0921")
+            stockActual = it.getInt("STOCK", 15)
+            puntoReorden = it.getInt("PUNTO_REORDEN", 5)
+
+            tvNombre.text = nombre
+            tvSKU.text = "SKU: $sku"
+            tvReorden.text = "Punto de Reorden: $puntoReorden unidades"
+            actualizarTextoStock(tvStock)
+        }
+
+        // Registrar ENTRADA (+)
         btnEntrada.setOnClickListener {
             val inputCant = etCantidad.text.toString()
-
             if (inputCant.isNotEmpty()) {
                 val cantidad = inputCant.toInt()
                 if (cantidad > 0) {
                     stockActual += cantidad
-                    tvStock.text = "Stock Disponible: $stockActual unidades"
+                    actualizarTextoStock(tvStock)
                     etCantidad.text.clear()
                     Toast.makeText(this, "Entrada de $cantidad unidades registrada", Toast.LENGTH_SHORT).show()
                 } else {
@@ -42,25 +56,21 @@ class DetailActivity : AppCompatActivity() {
             }
         }
 
-        // Registrar SALIDA de inventario (Validando existencias y Notificación de Reorden)
+        // Registrar SALIDA (-)
         btnSalida.setOnClickListener {
             val inputCant = etCantidad.text.toString()
-
             if (inputCant.isNotEmpty()) {
                 val cantidad = inputCant.toInt()
-
                 if (cantidad <= 0) {
                     Toast.makeText(this, "Ingresa una cantidad mayor a 0", Toast.LENGTH_SHORT).show()
                 } else if (cantidad > stockActual) {
-                    // VALIDACIÓN OBLIGATORIA POR RÚBRICA: No permitir más salidas que existencias
                     Toast.makeText(this, "Error: No hay suficientes unidades disponibles ($stockActual)", Toast.LENGTH_LONG).show()
                 } else {
                     stockActual -= cantidad
-                    tvStock.text = "Stock Disponible: $stockActual unidades"
+                    actualizarTextoStock(tvStock)
                     etCantidad.text.clear()
                     Toast.makeText(this, "Salida de $cantidad unidades registrada", Toast.LENGTH_SHORT).show()
 
-                    // ALERTAS Y NOTIFICACIONES DE REORDEN
                     if (stockActual <= puntoReorden) {
                         Toast.makeText(
                             this,
@@ -74,8 +84,10 @@ class DetailActivity : AppCompatActivity() {
             }
         }
 
-        btnVolver.setOnClickListener {
-            finish()
-        }
+        btnVolver.setOnClickListener { finish() }
+    }
+
+    private fun actualizarTextoStock(tvStock: TextView) {
+        tvStock.text = "Stock Disponible: $stockActual unidades"
     }
 }
