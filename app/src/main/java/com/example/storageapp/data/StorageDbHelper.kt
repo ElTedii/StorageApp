@@ -167,6 +167,23 @@ class StorageDbHelper private constructor(context: Context) :
         return res != -1L
     }
 
+    fun insertarProductoOffline(product: Product, imagenes: List<ByteArray>): Boolean {
+        val db = this.writableDatabase
+
+        // Validar si el SKU ya existe localmente
+        val cursor = db.rawQuery("SELECT 1 FROM PRODUCTO WHERE sku = ?", arrayOf(product.sku))
+        val existe = cursor.moveToFirst()
+        cursor.close()
+
+        if (existe) {
+            // Si ya existe, rechazamos la inserción local para evitar duplicar folios
+            return false
+        }
+
+        // Si no existe, lo guardamos marcado como pendiente de sincronizar (sincronizado = 0)
+        return guardarOActualizarProducto(product.copy(sincronizado = 0), imagenes)
+    }
+
     fun autenticarUsuario(correo: String, pass: String): User? {
         val db = readableDatabase
         val cursor = db.rawQuery(

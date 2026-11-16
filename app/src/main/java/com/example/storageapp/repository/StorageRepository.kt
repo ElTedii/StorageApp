@@ -85,6 +85,7 @@ class StorageRepository(context: Context) {
     }
 
     // SINCRONIZACIÓN BIDIRECCIONAL (Subir pendientes y limpiar borrados del servidor)
+// SINCRONIZACIÓN BIDIRECCIONAL (Subir pendientes y limpiar borrados del servidor de forma segura)
     fun sincronizarPendientesConServidor(onComplete: ((Int) -> Unit)? = null) {
         thread {
             var subidos = 0
@@ -107,23 +108,33 @@ class StorageRepository(context: Context) {
                 }
             }
 
-            // 3. Descargar catálogo remoto y eliminar en local los que ya no existan en el servidor
+            // 3. Descargar catálogo remoto de forma segura
             val remotos = ApiClient.descargarProductosRemotos()
-            val skusRemotos = remotos.map { it.first.sku }.toSet()
 
-            val locales = dbHelper.obtenerTodosLosProductos()
-            for (local in locales) {
-                if (!skusRemotos.contains(local.sku)) {
-                    dbHelper.eliminarProducto(local.sku)
+            // Validamos que la API haya respondido (si no hay internet, remotos estará vacío y no tocamos nada local)
+            if (remotos.isNotEmpty()) {
+                val skusRemotos = remotos.map { it.first.sku }.toSet()
+                val locales = dbHelper.obtenerTodosLosProductos()
+
+                for (local in locales) {
+                    // Consultamos el producto completo en SQLite para verificar su estado de sincronización real
+                    val prodCompleto = dbHelper.obtenerProductoPorSku(local.sku)
+
+                    // 🛡️ REGLA DE ORO OFFLINE-FIRST:
+                    // Si no está en el servidor Y el registro local está sincronizado (1), se borra porque lo eliminaron en la nube.
+                    // Si el estado es 0 (creado/editado offline), SE RESPETA y no se toca.
+                    if (!skusRemotos.contains(local.sku) && (prodCompleto?.sincronizado == 1)) {
+                        dbHelper.eliminarProducto(local.sku)
+                    }
                 }
-            }
 
-            // Guardar o actualizar los productos remotos en SQLite local
-            for ((prodRemoto, fotosRemotas) in remotos) {
-                val local = dbHelper.obtenerProductoPorSku(prodRemoto.sku)
-                if (local == null || local.sincronizado == 1) {
-                    dbHelper.guardarOActualizarProducto(prodRemoto, fotosRemotas)
-                    dbHelper.marcarProductoSincronizado(prodRemoto.sku)
+                // Guardar o actualizar los productos remotos en SQLite local
+                for ((prodRemoto, fotosRemotas) in remotos) {
+                    val local = dbHelper.obtenerProductoPorSku(prodRemoto.sku)
+                    if (local == null || local.sincronizado == 1) {
+                        dbHelper.guardarOActualizarProducto(prodRemoto, fotosRemotas)
+                        dbHelper.marcarProductoSincronizado(prodRemoto.sku)
+                    }
                 }
             }
 
