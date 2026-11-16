@@ -10,12 +10,14 @@ import android.widget.EditText
 import android.widget.Spinner
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.addTextChangedListener
+import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.example.storageapp.data.StorageDbHelper
+import com.example.storageapp.viewmodel.StorageViewModel
 
 class ViewActivity : AppCompatActivity() {
 
+    private lateinit var viewModel: StorageViewModel
     private lateinit var adapter: ProductoAdapter
     private var listaProductos = mutableListOf<ProductoItem>()
 
@@ -27,20 +29,18 @@ class ViewActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_view)
 
+        // Inicializar ViewModel (Patrón MVVM)
+        viewModel = ViewModelProvider(this)[StorageViewModel::class.java]
+
         etBuscar = findViewById(R.id.etBuscar)
         spFiltroCategoria = findViewById(R.id.spFiltroCategoria)
         spOrdenamiento = findViewById(R.id.spOrdenamiento)
         val rvProductos = findViewById<RecyclerView>(R.id.rvProductos)
         val btnVolver = findViewById<Button>(R.id.btnVolverConsulta)
 
-        // Lista inicial
-        StorageDbHelper.getInstance(this).obtenerTodosLosProductos().toMutableList()
-
-        // Configurar Spinner de Categorías
-        val categorias = arrayOf("Todas las categorías", "Herramientas", "Electricidad", "Plomería", "Seguridad")
+        val categorias = arrayOf("Todas las categorías", "Herramientas", "Electricidad", "Plomería", "Seguridad", "General")
         spFiltroCategoria.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, categorias)
 
-        // Configurar Spinner de Ordenamiento
         val ordenamientos = arrayOf("Ordenar: Nombre (A-Z)", "Ordenar: Menor Stock", "Ordenar: Mayor Stock", "Ordenar: SKU")
         spOrdenamiento.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, ordenamientos)
 
@@ -60,7 +60,12 @@ class ViewActivity : AppCompatActivity() {
         rvProductos.layoutManager = LinearLayoutManager(this)
         rvProductos.adapter = adapter
 
-        // Eventos para filtrar y ordenar en tiempo real
+        // Observar cambios reactivos desde el ViewModel (MVVM)
+        viewModel.productosLiveData.observe(this) { productos ->
+            listaProductos = productos.toMutableList()
+            aplicarFiltrosYOrden()
+        }
+
         etBuscar.addTextChangedListener { aplicarFiltrosYOrden() }
 
         val spinnerListener = object : AdapterView.OnItemSelectedListener {
@@ -76,12 +81,16 @@ class ViewActivity : AppCompatActivity() {
         btnVolver.setOnClickListener { finish() }
     }
 
+    override fun onResume() {
+        super.onResume()
+        viewModel.cargarCatalogo()
+    }
+
     private fun aplicarFiltrosYOrden() {
         val query = etBuscar.text.toString().lowercase().trim()
         val categoriaSeleccionada = spFiltroCategoria.selectedItem?.toString() ?: "Todas las categorías"
         val ordenSeleccionado = spOrdenamiento.selectedItemPosition
 
-        // 1. Filtrar por texto y categoría
         var resultado = listaProductos.filter { prod ->
             val coincideTexto = prod.nombre.lowercase().contains(query) ||
                     prod.sku.lowercase().contains(query) ||
@@ -93,7 +102,6 @@ class ViewActivity : AppCompatActivity() {
             coincideTexto && coincideCategoria
         }
 
-        // 2. Ordenar según selección
         resultado = when (ordenSeleccionado) {
             0 -> resultado.sortedBy { it.nombre.lowercase() }
             1 -> resultado.sortedBy { it.existencias }
@@ -103,11 +111,5 @@ class ViewActivity : AppCompatActivity() {
         }
 
         adapter.actualizarLista(resultado)
-    }
-
-    override fun onResume() {
-        super.onResume()
-        listaProductos = StorageDbHelper.getInstance(this).obtenerTodosLosProductos().toMutableList()
-        aplicarFiltrosYOrden()
     }
 }
