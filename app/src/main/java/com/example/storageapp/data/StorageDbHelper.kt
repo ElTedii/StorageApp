@@ -366,4 +366,72 @@ class StorageDbHelper private constructor(context: Context) :
             db.endTransaction()
         }
     }
+    // ==================== CONTROL DE SINCRONIZACIÓN (OFFLINE -> ONLINE) ====================
+
+    fun obtenerProductosNoSincronizados(): List<Product> {
+        val lista = mutableListOf<Product>()
+        val db = readableDatabase
+        val cursor = db.rawQuery("SELECT * FROM PRODUCTO WHERE sincronizado = 0", null)
+        if (cursor.moveToFirst()) {
+            do {
+                lista.add(
+                    Product(
+                        sku = cursor.getString(cursor.getColumnIndexOrThrow("sku")),
+                        nombre = cursor.getString(cursor.getColumnIndexOrThrow("nombre")),
+                        categoria = cursor.getString(cursor.getColumnIndexOrThrow("categoria")),
+                        marca = cursor.getString(cursor.getColumnIndexOrThrow("marca")),
+                        modelo = cursor.getString(cursor.getColumnIndexOrThrow("modelo")),
+                        existencias = cursor.getInt(cursor.getColumnIndexOrThrow("existencias")),
+                        puntoReorden = cursor.getInt(cursor.getColumnIndexOrThrow("punto_reorden")),
+                        descripcion = cursor.getString(cursor.getColumnIndexOrThrow("descripcion")),
+                        estado = cursor.getString(cursor.getColumnIndexOrThrow("estado")),
+                        fechaCreacion = cursor.getString(cursor.getColumnIndexOrThrow("fecha_creacion")),
+                        fechaModificacion = cursor.getString(cursor.getColumnIndexOrThrow("fecha_modificacion")),
+                        sincronizado = 0,
+                        correoUsuarioCreador = cursor.getString(cursor.getColumnIndexOrThrow("correo_usuario_creador"))
+                    )
+                )
+            } while (cursor.moveToNext())
+        }
+        cursor.close()
+        return lista
+    }
+
+    fun marcarProductoSincronizado(sku: String) {
+        val cv = ContentValues().apply { put("sincronizado", 1) }
+        writableDatabase.update("PRODUCTO", cv, "sku = ?", arrayOf(sku))
+    }
+
+    fun obtenerMovimientosNoSincronizados(): List<InventoryMovement> {
+        val lista = mutableListOf<InventoryMovement>()
+        val db = readableDatabase
+        val cursor = db.rawQuery("SELECT * FROM MOVIMIENTO_INVENTARIO WHERE sincronizado = 0", null)
+        if (cursor.moveToFirst()) {
+            do {
+                lista.add(
+                    InventoryMovement(
+                        idMovimiento = cursor.getInt(cursor.getColumnIndexOrThrow("id_movimiento")),
+                        skuProducto = cursor.getString(cursor.getColumnIndexOrThrow("sku_producto")),
+                        correoUsuario = cursor.getString(cursor.getColumnIndexOrThrow("correo_usuario")),
+                        tipoMovimiento = cursor.getString(cursor.getColumnIndexOrThrow("tipo_movimiento")),
+                        cantidad = cursor.getInt(cursor.getColumnIndexOrThrow("cantidad")),
+                        fechaHora = cursor.getString(cursor.getColumnIndexOrThrow("fecha_hora")),
+                        sincronizado = 0
+                    )
+                )
+            } while (cursor.moveToNext())
+        }
+        cursor.close()
+        return lista
+    }
+
+    fun marcarMovimientoSincronizado(idMovimiento: Int) {
+        val cv = ContentValues().apply { put("sincronizado", 1) }
+        writableDatabase.update("MOVIMIENTO_INVENTARIO", cv, "id_movimiento = ?", arrayOf(idMovimiento.toString()))
+    }
+
+    fun marcarProductoComoPendiente(sku: String) {
+        val cv = ContentValues().apply { put("sincronizado", 0) }
+        writableDatabase.update("PRODUCTO", cv, "sku = ?", arrayOf(sku))
+    }
 }

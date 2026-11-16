@@ -132,6 +132,14 @@
         </LinearLayout>
 
         <Button
+            android:id="@+id/btnEliminarProducto"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Eliminar Producto"
+            android:backgroundTint="#C62828"
+            android:layout_marginBottom="8dp" />
+
+        <Button
             android:id="@+id/btnVolverDetalle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

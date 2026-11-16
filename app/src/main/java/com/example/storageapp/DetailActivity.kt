@@ -21,6 +21,7 @@ import androidx.core.app.NotificationManagerCompat
 import com.example.storageapp.data.StorageDbHelper
 import com.example.storageapp.utils.ImageUtils
 import com.example.storageapp.utils.SessionManager
+import com.example.storageapp.repository.StorageRepository
 
 class DetailActivity : AppCompatActivity() {
 
@@ -56,11 +57,38 @@ class DetailActivity : AppCompatActivity() {
         val btnEntrada = findViewById<Button>(R.id.btnEntrada)
         val btnSalida = findViewById<Button>(R.id.btnSalida)
         val btnVolver = findViewById<Button>(R.id.btnVolverDetalle)
+        val btnEliminar = findViewById<Button>(R.id.btnEliminarProducto)
 
-        skuProducto = intent.getStringExtra("SKU") ?: "SK-TL-0921"
+        // 1. Capturar correctamente el SKU que viene del Intent
+        skuProducto = intent.getStringExtra("EXTRA_SKU") ?: intent.getStringExtra("SKU") ?: ""
         cargarDatosDesdeSQLite()
 
-        // Al tocar el título del producto o las fotos, ofrece Editar o Eliminar el producto (CRUD completo)
+        // 2. Lógica del botón Eliminar (Borra local y manda DELETE al servidor Fedora)
+        btnEliminar.setOnClickListener {
+            if (skuProducto.isEmpty()) {
+                Toast.makeText(this, "SKU no válido", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            AlertDialog.Builder(this)
+                .setTitle("Confirmar Eliminación")
+                .setMessage("¿Estás seguro de eliminar permanentemente '$nombreProducto' ($skuProducto)?")
+                .setPositiveButton("Eliminar") { _, _ ->
+                    val repo = StorageRepository(this)
+                    val exito = repo.eliminarProducto(skuProducto)
+
+                    if (exito) {
+                        Toast.makeText(this, "Producto eliminado correctamente", Toast.LENGTH_SHORT).show()
+                        finish() // Cierra el detalle y regresa al catálogo actualizado
+                    } else {
+                        Toast.makeText(this, "No se pudo eliminar el producto", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                .setNegativeButton("Cancelar", null)
+                .show()
+        }
+
+        // Al tocar el título del producto o las fotos, ofrece Editar o Eliminar el producto
         tvNombre.setOnClickListener { mostrarOpcionesCRUD() }
 
         val db = StorageDbHelper.getInstance(this)
@@ -126,6 +154,7 @@ class DetailActivity : AppCompatActivity() {
     }
 
     private fun cargarDatosDesdeSQLite() {
+        if (skuProducto.isEmpty()) return
         val db = StorageDbHelper.getInstance(this)
         db.obtenerProductoPorSku(skuProducto)?.let { prod ->
             nombreProducto = prod.nombre
@@ -151,7 +180,7 @@ class DetailActivity : AppCompatActivity() {
     private fun mostrarOpcionesCRUD() {
         val opciones = arrayOf("✏️ Editar Producto / Publicar Borrador", "🗑️ Eliminar Producto del Almacén", "Cancelar")
         AlertDialog.Builder(this)
-            .setTitle(" Administrar: $nombreProducto")
+            .setTitle("Administrar: $nombreProducto")
             .setItems(opciones) { dialog, which ->
                 when (which) {
                     0 -> {
@@ -164,7 +193,8 @@ class DetailActivity : AppCompatActivity() {
                             .setTitle("Confirmar Eliminación")
                             .setMessage("¿Estás seguro de eliminar permanentemente '$nombreProducto' ($skuProducto)?")
                             .setPositiveButton("Eliminar") { _, _ ->
-                                StorageDbHelper.getInstance(this).eliminarProducto(skuProducto)
+                                val repo = StorageRepository(this)
+                                repo.eliminarProducto(skuProducto)
                                 Toast.makeText(this, "Producto eliminado", Toast.LENGTH_SHORT).show()
                                 finish()
                             }
