@@ -7,6 +7,7 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
+import com.example.storageapp.utils.ImageUtils
 
 class ProductoAdapter(
     private var listaProductos: List<ProductoItem>,
@@ -37,7 +38,14 @@ class ProductoAdapter(
         holder.tvCategoria.text = "${prod.categoria} | ${prod.marca}"
         holder.tvStock.text = "${prod.existencias} pzas"
 
-        // Alerta dinámica de punto de reorden
+        // Mostrar miniatura guardada en BLOB si existe
+        val bitmap = ImageUtils.byteArrayToBitmap(prod.imagenPrincipal)
+        if (bitmap != null) {
+            holder.ivImagen.setImageBitmap(bitmap)
+        } else {
+            holder.ivImagen.setImageResource(android.R.drawable.ic_menu_gallery)
+        }
+
         if (prod.existencias <= prod.puntoReorden) {
             holder.tvStock.setTextColor(ContextCompat.getColor(context, R.color.stock_alert))
             holder.tvBadgeReorden.visibility = View.VISIBLE

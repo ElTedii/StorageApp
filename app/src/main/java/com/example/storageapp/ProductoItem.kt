@@ -7,5 +7,6 @@ data class ProductoItem(
     val categoria: String,
     val marca: String,
     val existencias: Int,
-    val puntoReorden: Int
+    val puntoReorden: Int,
+    val imagenPrincipal: ByteArray? = null
 )

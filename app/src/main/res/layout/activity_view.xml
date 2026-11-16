@@ -13,7 +13,7 @@
         android:textSize="22sp"
         android:textStyle="bold"
         android:layout_marginBottom="12dp" />
-
+a
     <!-- Buscador de productos -->
     <EditText
         android:id="@+id/etBuscar"

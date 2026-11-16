@@ -6,6 +6,8 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import com.example.storageapp.data.StorageDbHelper
+import com.example.storageapp.utils.SessionManager
 
 class LoginActivity : AppCompatActivity() {
 
@@ -13,35 +15,41 @@ class LoginActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
 
-        // Referencias a los componentes del XML
         val etCorreo = findViewById<EditText>(R.id.etCorreoLogin)
         val etPassword = findViewById<EditText>(R.id.etPasswordLogin)
         val btnIngresar = findViewById<Button>(R.id.btnIngresar)
         val btnIrRegistro = findViewById<Button>(R.id.btnIrRegistro)
 
-        // Acción al presionar el botón Ingresar
         btnIngresar.setOnClickListener {
             val correo = etCorreo.text.toString().trim()
             val password = etPassword.text.toString().trim()
 
             if (correo.isNotEmpty() && password.isNotEmpty()) {
-                // Validación exitosa: navega a MainActivity y elimina Login de la pila
-                val intent = Intent(this, MainActivity::class.java)
-                startActivity(intent)
-                finish()
+                val usuario = StorageDbHelper.getInstance(this).autenticarUsuario(correo, password)
+                if (usuario != null) {
+                    SessionManager.guardarSesion(
+                        this,
+                        usuario.correo,
+                        usuario.alias,
+                        "${usuario.nombre} ${usuario.apellidos}",
+                        usuario.avatarBlob
+                    )
+                    startActivity(Intent(this, MainActivity::class.java))
+                    finish()
+                } else {
+                    Toast.makeText(
+                        this,
+                        "Credenciales incorrectas (Tip: usa admin@storageapp.com / Admin12345 o regístrate)",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
             } else {
-                Toast.makeText(
-                    this,
-                    "Por favor ingresa tu correo y contraseña",
-                    Toast.LENGTH_SHORT
-                ).show()
+                Toast.makeText(this, "Por favor ingresa tu correo y contraseña", Toast.LENGTH_SHORT).show()
             }
         }
 
-        // Acción al presionar el botón de Registro
         btnIrRegistro.setOnClickListener {
-            val intent = Intent(this, RegisterActivity::class.java)
-            startActivity(intent)
+            startActivity(Intent(this, RegisterActivity::class.java))
         }
     }
 }
