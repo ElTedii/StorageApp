@@ -1,15 +1,23 @@
-package com.example.storageapp
+﻿package com.example.storageapp
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.storageapp.data.StorageDbHelper
+import com.example.storageapp.model.User
+import com.example.storageapp.repository.StorageRepository
 import com.example.storageapp.utils.SessionManager
 
 class LoginActivity : AppCompatActivity() {
+
+    private lateinit var pbLoginSync: ProgressBar
+    private lateinit var btnIngresar: Button
+    private var syncsActivos = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -17,39 +25,99 @@ class LoginActivity : AppCompatActivity() {
 
         val etCorreo = findViewById<EditText>(R.id.etCorreoLogin)
         val etPassword = findViewById<EditText>(R.id.etPasswordLogin)
-        val btnIngresar = findViewById<Button>(R.id.btnIngresar)
+        btnIngresar = findViewById(R.id.btnIngresar)
         val btnIrRegistro = findViewById<Button>(R.id.btnIrRegistro)
+        pbLoginSync = findViewById(R.id.pbLoginSync)
+
+        val repo = StorageRepository(this)
+        iniciarSincronizacion()
+        repo.sincronizarPendientesConServidor {
+            runOnUiThread {
+                if (!isFinishing && !isDestroyed) finalizarSincronizacion()
+            }
+        }
 
         btnIngresar.setOnClickListener {
-            val correo = etCorreo.text.toString().trim()
+            val correo = etCorreo.text.toString().trim().lowercase()
             val password = etPassword.text.toString().trim()
 
-            if (correo.isNotEmpty() && password.isNotEmpty()) {
-                val usuario = StorageDbHelper.getInstance(this).autenticarUsuario(correo, password)
-                if (usuario != null) {
-                    SessionManager.guardarSesion(
-                        this,
-                        usuario.correo,
-                        usuario.alias,
-                        "${usuario.nombre} ${usuario.apellidos}",
-                        usuario.avatarBlob
-                    )
-                    startActivity(Intent(this, MainActivity::class.java))
-                    finish()
-                } else {
-                    Toast.makeText(
-                        this,
-                        "Credenciales incorrectas (Tip: usa admin@storageapp.com / Admin12345 o regístrate)",
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
-            } else {
+            if (correo.isEmpty() || password.isEmpty()) {
                 Toast.makeText(this, "Por favor ingresa tu correo y contraseña", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            val db = StorageDbHelper.getInstance(this)
+            val usuario = db.autenticarUsuario(correo, password)
+            if (usuario == null) {
+                Toast.makeText(this, "Credenciales incorrectas o usuario no encontrado", Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+
+            when (usuario.estadoRegistro) {
+                "CONFLICTO" -> Toast.makeText(
+                    this,
+                    "Tu registro tiene conflicto (correo ya registrado en servidor). Regístrate con otro correo.",
+                    Toast.LENGTH_LONG
+                ).show()
+                "PENDIENTE" -> reintentarSincronizacion(repo, db, correo)
+                else -> entrar(usuario)
             }
         }
 
         btnIrRegistro.setOnClickListener {
             startActivity(Intent(this, RegisterActivity::class.java))
         }
+    }
+
+    private fun reintentarSincronizacion(repo: StorageRepository, db: StorageDbHelper, correo: String) {
+        iniciarSincronizacion()
+        btnIngresar.isEnabled = false
+        repo.sincronizarPendientesConServidor {
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                btnIngresar.isEnabled = true
+                finalizarSincronizacion()
+                val actualizado = db.obtenerUsuarioPorCorreo(correo)
+                when (actualizado?.estadoRegistro) {
+                    "CONFIRMADO" -> entrar(actualizado)
+                    "CONFLICTO" -> Toast.makeText(
+                        this,
+                        "Tu registro tiene conflicto (correo ya registrado en servidor). Regístrate con otro correo.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    else -> Toast.makeText(
+                        this,
+                        "Tu registro sigue pendiente de sincronización. Verifica tu conexión.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+    }
+
+    private fun entrar(usuario: User) {
+        SessionManager.guardarSesion(
+            this,
+            usuario.correo,
+            usuario.alias,
+            "${usuario.nombre} ${usuario.apellidos}",
+            usuario.avatarBlob
+        )
+        startActivity(Intent(this, MainActivity::class.java))
+        finish()
+    }
+
+    private fun iniciarSincronizacion() {
+        syncsActivos++
+        mostrarCargando(true)
+    }
+
+    private fun finalizarSincronizacion() {
+        syncsActivos = (syncsActivos - 1).coerceAtLeast(0)
+        mostrarCargando(syncsActivos > 0)
+    }
+
+    private fun mostrarCargando(mostrar: Boolean) {
+        pbLoginSync.visibility = if (mostrar) View.VISIBLE else View.GONE
     }
 }

@@ -7,7 +7,9 @@ import androidx.lifecycle.MutableLiveData
 import com.example.storageapp.ProductoItem
 import com.example.storageapp.model.Product
 import com.example.storageapp.model.User
+import com.example.storageapp.repository.ProfileUpdateResult
 import com.example.storageapp.repository.StorageRepository
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * PATRÓN MVVM (Model - View - ViewModel):
@@ -21,6 +23,11 @@ class StorageViewModel(application: Application) : AndroidViewModel(application)
     private val _productosLiveData = MutableLiveData<List<ProductoItem>>()
     val productosLiveData: LiveData<List<ProductoItem>> get() = _productosLiveData
 
+    private val _cargandoLiveData = MutableLiveData(false)
+    val cargandoLiveData: LiveData<Boolean> get() = _cargandoLiveData
+
+    private val syncsActivos = AtomicInteger(0)
+
     private val _productoDetalleLiveData = MutableLiveData<Product?>()
     val productoDetalleLiveData: LiveData<Product?> get() = _productoDetalleLiveData
 
@@ -29,7 +36,14 @@ class StorageViewModel(application: Application) : AndroidViewModel(application)
 
     // --- Catálogo Reactivo ---
     fun cargarCatalogo() {
-        _productosLiveData.value = repository.obtenerCatalogo()
+        syncsActivos.incrementAndGet()
+        _cargandoLiveData.value = true
+        _productosLiveData.value = repository.obtenerCatalogoLocal()
+        repository.sincronizarPendientesConServidor {
+            val restantes = syncsActivos.decrementAndGet()
+            _productosLiveData.postValue(repository.obtenerCatalogoLocal())
+            if (restantes <= 0) _cargandoLiveData.postValue(false)
+        }
     }
 
     // --- Detalle Reactivo ---
@@ -62,7 +76,7 @@ class StorageViewModel(application: Application) : AndroidViewModel(application)
 
     fun autenticarUsuario(correo: String, pass: String): User? = repository.autenticarUsuario(correo, pass)
 
-    fun actualizarPerfil(correo: String, nuevoAlias: String, nuevaPass: String?, nuevoAvatar: ByteArray?): Boolean {
-        return repository.actualizarPerfil(correo, nuevoAlias, nuevaPass, nuevoAvatar)
+    fun actualizarPerfil(correo: String, currentPassword: String, nuevoAlias: String, nuevaPass: String?, nuevoAvatar: ByteArray?): ProfileUpdateResult {
+        return repository.actualizarPerfil(correo, currentPassword, nuevoAlias, nuevaPass, nuevoAvatar)
     }
 }

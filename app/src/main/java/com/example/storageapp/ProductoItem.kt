@@ -8,5 +8,8 @@ data class ProductoItem(
     val marca: String,
     val existencias: Int,
     val puntoReorden: Int,
-    val imagenPrincipal: ByteArray? = null
+    val imagenPrincipal: ByteArray? = null,
+    val descripcion: String? = null,
+    val fechaCreacion: String = "",
+    val fechaModificacion: String = ""
 )

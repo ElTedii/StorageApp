@@ -4,7 +4,7 @@ data class ProductImage(
     val idImagen: Int = 0,
     val skuProducto: String, // FK hacia Product.sku
     val imagenBlob: ByteArray, // BLOB para la imagen
-    val descripcion: String? = null,
+    val descripcion: String = "Imagen de producto",
     val fechaCreacion: String,
     val fechaModificacion: String
 ) {

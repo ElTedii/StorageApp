@@ -41,6 +41,15 @@
         android:inputType="textPassword"
         android:layout_marginBottom="24dp" />
 
+    <ProgressBar
+        android:id="@+id/pbLoginSync"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="12dp"
+        android:indeterminate="true"
+        android:visibility="gone" />
+
     <Button
         android:id="@+id/btnIngresar"
         android:layout_width="match_parent"

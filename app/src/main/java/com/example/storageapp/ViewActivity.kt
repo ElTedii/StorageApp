@@ -37,11 +37,21 @@ class ViewActivity : AppCompatActivity() {
         spOrdenamiento = findViewById(R.id.spOrdenamiento)
         val rvProductos = findViewById<RecyclerView>(R.id.rvProductos)
         val btnVolver = findViewById<Button>(R.id.btnVolverConsulta)
+        val llCatalogoCargando = findViewById<View>(R.id.llCatalogoCargando)
 
         val categorias = arrayOf("Todas las categorías", "Herramientas", "Electricidad", "Plomería", "Seguridad", "General")
         spFiltroCategoria.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, categorias)
 
-        val ordenamientos = arrayOf("Ordenar: Nombre (A-Z)", "Ordenar: Menor Stock", "Ordenar: Mayor Stock", "Ordenar: SKU")
+        val ordenamientos = arrayOf(
+            "Ordenar: Nombre (A-Z)",
+            "Ordenar: Menor Stock",
+            "Ordenar: Mayor Stock",
+            "Ordenar: SKU",
+            "Ordenar: Fecha creación (reciente)",
+            "Ordenar: Fecha creación (antigua)",
+            "Ordenar: Fecha modificación (reciente)",
+            "Ordenar: Fecha modificación (antigua)"
+        )
         spOrdenamiento.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, ordenamientos)
 
         adapter = ProductoAdapter(listaProductos) { producto ->
@@ -64,6 +74,10 @@ class ViewActivity : AppCompatActivity() {
         viewModel.productosLiveData.observe(this) { productos ->
             listaProductos = productos.toMutableList()
             aplicarFiltrosYOrden()
+        }
+
+        viewModel.cargandoLiveData.observe(this) { cargando ->
+            llCatalogoCargando.visibility = if (cargando) View.VISIBLE else View.GONE
         }
 
         etBuscar.addTextChangedListener { aplicarFiltrosYOrden() }
@@ -93,6 +107,7 @@ class ViewActivity : AppCompatActivity() {
 
         var resultado = listaProductos.filter { prod ->
             val coincideTexto = prod.nombre.lowercase().contains(query) ||
+                    (prod.descripcion?.lowercase()?.contains(query) == true) ||
                     prod.sku.lowercase().contains(query) ||
                     prod.categoria.lowercase().contains(query)
 
@@ -107,6 +122,10 @@ class ViewActivity : AppCompatActivity() {
             1 -> resultado.sortedBy { it.existencias }
             2 -> resultado.sortedByDescending { it.existencias }
             3 -> resultado.sortedBy { it.sku }
+            4 -> resultado.sortedByDescending { it.fechaCreacion }
+            5 -> resultado.sortedBy { it.fechaCreacion }
+            6 -> resultado.sortedByDescending { it.fechaModificacion }
+            7 -> resultado.sortedBy { it.fechaModificacion }
             else -> resultado
         }
 

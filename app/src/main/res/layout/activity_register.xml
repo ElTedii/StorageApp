@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -34,7 +34,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
-            android:text="Seleccionar Avatar"
+            android:text="Seleccionar Avatar *"
             android:backgroundTint="#616161"
             android:layout_marginBottom="16dp" />
 
@@ -66,7 +66,7 @@
             android:id="@+id/etCorreo"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Correo Electrónico (Único) *"
+            android:hint="Correo Electrónico (único) *"
             android:inputType="textEmailAddress"
             android:layout_marginBottom="10dp" />
 
@@ -74,7 +74,7 @@
             android:id="@+id/etPassword"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Contraseña (Mínimo 10 car, 1 mayús, 1 min, 1 núm) *"
+            android:hint="Contraseña (mín. 10, 1 mayús, 1 minús, 1 núm) *"
             android:inputType="textPassword"
             android:layout_marginBottom="10dp" />
 
@@ -93,6 +93,15 @@
             android:hint="Dirección (Opcional)"
             android:inputType="textPostalAddress"
             android:layout_marginBottom="20dp" />
+
+        <ProgressBar
+            android:id="@+id/pbRegister"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginBottom="10dp"
+            android:indeterminate="true"
+            android:visibility="gone" />
 
         <Button
             android:id="@+id/btnRegistrarCuenta"

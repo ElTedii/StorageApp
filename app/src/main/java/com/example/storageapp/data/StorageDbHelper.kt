@@ -1,7 +1,8 @@
-package com.example.storageapp.data
+﻿package com.example.storageapp.data
 
 import android.content.ContentValues
 import android.content.Context
+import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import com.example.storageapp.ProductoItem
@@ -18,9 +19,8 @@ class StorageDbHelper private constructor(context: Context) :
 
     companion object {
         private const val DATABASE_NAME = "StorageApp.db"
-        private const val DATABASE_VERSION = 1
+        private const val DATABASE_VERSION = 3
 
-        // PATRÓN SINGLETON: Garantiza una única conexión activa a SQLite en toda la app
         @Volatile
         private var instance: StorageDbHelper? = null
 
@@ -37,7 +37,6 @@ class StorageDbHelper private constructor(context: Context) :
     }
 
     override fun onCreate(db: SQLiteDatabase) {
-        // 1. TABLA USUARIO
         db.execSQL("""
             CREATE TABLE USUARIO (
                 id_usuario INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -48,11 +47,12 @@ class StorageDbHelper private constructor(context: Context) :
                 contrasena VARCHAR NOT NULL,
                 telefono VARCHAR,
                 direccion VARCHAR,
-                avatar_blob BLOB
+                avatar_blob BLOB,
+                estado_registro VARCHAR NOT NULL DEFAULT 'CONFIRMADO',
+                sincronizado INTEGER NOT NULL DEFAULT 1
             )
         """.trimIndent())
 
-        // 2. TABLA PRODUCTO (SKU como Clave Primaria)
         db.execSQL("""
             CREATE TABLE PRODUCTO (
                 sku VARCHAR PRIMARY KEY NOT NULL,
@@ -72,20 +72,18 @@ class StorageDbHelper private constructor(context: Context) :
             )
         """.trimIndent())
 
-        // 3. TABLA IMAGEN_PRODUCTO
         db.execSQL("""
             CREATE TABLE IMAGEN_PRODUCTO (
                 id_imagen INTEGER PRIMARY KEY AUTOINCREMENT,
                 sku_producto VARCHAR NOT NULL,
                 imagen_blob BLOB NOT NULL,
-                descripcion VARCHAR,
-                fecha_creacion DATETIME NOT NULL,
-                fecha_modificacion DATETIME NOT NULL,
+                descripcion VARCHAR NOT NULL DEFAULT 'Imagen de producto',
+                fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                fecha_modificacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (sku_producto) REFERENCES PRODUCTO(sku) ON DELETE CASCADE
             )
         """.trimIndent())
 
-        // 4. TABLA MOVIMIENTO_INVENTARIO
         db.execSQL("""
             CREATE TABLE MOVIMIENTO_INVENTARIO (
                 id_movimiento INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -104,26 +102,43 @@ class StorageDbHelper private constructor(context: Context) :
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        db.execSQL("DROP TABLE IF EXISTS MOVIMIENTO_INVENTARIO")
-        db.execSQL("DROP TABLE IF EXISTS IMAGEN_PRODUCTO")
-        db.execSQL("DROP TABLE IF EXISTS PRODUCTO")
-        db.execSQL("DROP TABLE IF EXISTS USUARIO")
-        onCreate(db)
+        if (oldVersion < 2) {
+            try { db.execSQL("ALTER TABLE USUARIO ADD COLUMN estado_registro VARCHAR NOT NULL DEFAULT 'CONFIRMADO'") } catch (_: Exception) {}
+            try { db.execSQL("ALTER TABLE USUARIO ADD COLUMN sincronizado INTEGER NOT NULL DEFAULT 1") } catch (_: Exception) {}
+            db.execSQL("UPDATE USUARIO SET estado_registro = 'CONFIRMADO', sincronizado = 1 WHERE estado_registro IS NULL OR sincronizado IS NULL")
+        }
+        if (oldVersion < 3) {
+            val cursor = db.rawQuery(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'IMAGEN_PRODUCTO'",
+                null
+            )
+            val existeTabla = cursor.moveToFirst()
+            cursor.close()
+            if (existeTabla) {
+                try { db.execSQL("ALTER TABLE IMAGEN_PRODUCTO ADD COLUMN descripcion VARCHAR NOT NULL DEFAULT 'Imagen de producto'") } catch (_: Exception) {}
+                try { db.execSQL("ALTER TABLE IMAGEN_PRODUCTO ADD COLUMN fecha_creacion DATETIME NOT NULL DEFAULT '1970-01-01 00:00:00'") } catch (_: Exception) {}
+                try { db.execSQL("ALTER TABLE IMAGEN_PRODUCTO ADD COLUMN fecha_modificacion DATETIME NOT NULL DEFAULT '1970-01-01 00:00:00'") } catch (_: Exception) {}
+                val ahora = obtenerFechaActual()
+                db.execSQL("UPDATE IMAGEN_PRODUCTO SET descripcion = 'Imagen de producto' WHERE descripcion IS NULL OR TRIM(descripcion) = ''")
+                db.execSQL("UPDATE IMAGEN_PRODUCTO SET fecha_creacion = ? WHERE fecha_creacion IS NULL OR TRIM(fecha_creacion) = ''", arrayOf(ahora))
+                db.execSQL("UPDATE IMAGEN_PRODUCTO SET fecha_modificacion = ? WHERE fecha_modificacion IS NULL OR TRIM(fecha_modificacion) = ''", arrayOf(ahora))
+            }
+        }
     }
 
     private fun insertarDatosSemilla(db: SQLiteDatabase) {
         val ahora = obtenerFechaActual()
-        // Usuario por defecto para pruebas rápidas
         val userValues = ContentValues().apply {
             put("nombre", "Administrador")
             put("apellidos", "Almacén")
             put("alias", "Admin")
             put("correo", "admin@storageapp.com")
             put("contrasena", "Admin12345")
+            put("estado_registro", "CONFIRMADO")
+            put("sincronizado", 1)
         }
         db.insert("USUARIO", null, userValues)
 
-        // Productos iniciales de demostración
         val iniciales = listOf(
             Product("SK-TL-0921", "Taladro Percutor 20V", "Herramientas", "DeWalt", "DCD778", 15, 5, "Taladro inalámbrico brushless", "PUBLICADO", ahora, ahora, 0, "admin@storageapp.com"),
             Product("SK-LL-4410", "Juego de Llaves Allen", "Herramientas", "Stanley", "ST-69-253", 3, 5, "Juego de 10 llaves milimétricas", "PUBLICADO", ahora, ahora, 0, "admin@storageapp.com"),
@@ -149,7 +164,23 @@ class StorageDbHelper private constructor(context: Context) :
         }
     }
 
-    // ==================== OPERACIONES DE USUARIO ====================
+    private fun cursorToUser(cursor: Cursor): User {
+        val estadoIdx = cursor.getColumnIndex("estado_registro")
+        val syncIdx = cursor.getColumnIndex("sincronizado")
+        return User(
+            idUsuario = cursor.getInt(cursor.getColumnIndexOrThrow("id_usuario")),
+            nombre = cursor.getString(cursor.getColumnIndexOrThrow("nombre")),
+            apellidos = cursor.getString(cursor.getColumnIndexOrThrow("apellidos")),
+            alias = cursor.getString(cursor.getColumnIndexOrThrow("alias")),
+            correo = cursor.getString(cursor.getColumnIndexOrThrow("correo")),
+            contrasenaHash = cursor.getString(cursor.getColumnIndexOrThrow("contrasena")),
+            telefono = cursor.getString(cursor.getColumnIndexOrThrow("telefono")),
+            direccion = cursor.getString(cursor.getColumnIndexOrThrow("direccion")),
+            avatarBlob = cursor.getBlob(cursor.getColumnIndexOrThrow("avatar_blob")),
+            estadoRegistro = if (estadoIdx >= 0) cursor.getString(estadoIdx) ?: "CONFIRMADO" else "CONFIRMADO",
+            sincronizado = if (syncIdx >= 0) cursor.getInt(syncIdx) else 1
+        )
+    }
 
     fun registrarUsuario(user: User): Boolean {
         val db = writableDatabase
@@ -162,48 +193,80 @@ class StorageDbHelper private constructor(context: Context) :
             put("telefono", user.telefono)
             put("direccion", user.direccion)
             put("avatar_blob", user.avatarBlob)
+            put("estado_registro", user.estadoRegistro)
+            put("sincronizado", user.sincronizado)
         }
-        val res = db.insert("USUARIO", null, values)
-        return res != -1L
+        return db.insert("USUARIO", null, values) != -1L
+    }
+
+    fun existeCorreoLocal(correo: String): Boolean {
+        val cursor = readableDatabase.rawQuery("SELECT 1 FROM USUARIO WHERE correo = ?", arrayOf(correo))
+        val existe = cursor.moveToFirst()
+        cursor.close()
+        return existe
+    }
+
+    fun obtenerUsuarioPorCorreo(correo: String): User? {
+        val cursor = readableDatabase.rawQuery("SELECT * FROM USUARIO WHERE correo = ?", arrayOf(correo))
+        var user: User? = null
+        if (cursor.moveToFirst()) user = cursorToUser(cursor)
+        cursor.close()
+        return user
+    }
+
+    fun obtenerUsuariosPendientes(): List<User> {
+        val lista = mutableListOf<User>()
+        val cursor = readableDatabase.rawQuery("SELECT * FROM USUARIO WHERE sincronizado = 0", null)
+        if (cursor.moveToFirst()) {
+            do { lista.add(cursorToUser(cursor)) } while (cursor.moveToNext())
+        }
+        cursor.close()
+        return lista
+    }
+
+    fun marcarUsuarioSincronizado(correo: String) {
+        val cv = ContentValues().apply {
+            put("sincronizado", 1)
+            put("estado_registro", "CONFIRMADO")
+        }
+        writableDatabase.update("USUARIO", cv, "correo = ?", arrayOf(correo))
+    }
+
+    fun marcarUsuarioConflicto(correo: String) {
+        val cv = ContentValues().apply {
+            put("sincronizado", 0)
+            put("estado_registro", "CONFLICTO")
+        }
+        writableDatabase.update("USUARIO", cv, "correo = ?", arrayOf(correo))
+    }
+
+    fun marcarUsuarioPendienteSync(correo: String) {
+        val actual = obtenerUsuarioPorCorreo(correo)
+        val cv = ContentValues().apply {
+            put("sincronizado", 0)
+            if (actual?.estadoRegistro == "CONFIRMADO") {
+                put("estado_registro", "CONFIRMADO")
+            }
+        }
+        writableDatabase.update("USUARIO", cv, "correo = ?", arrayOf(correo))
     }
 
     fun insertarProductoOffline(product: Product, imagenes: List<ByteArray>): Boolean {
         val db = this.writableDatabase
-
-        // Validar si el SKU ya existe localmente
         val cursor = db.rawQuery("SELECT 1 FROM PRODUCTO WHERE sku = ?", arrayOf(product.sku))
         val existe = cursor.moveToFirst()
         cursor.close()
-
-        if (existe) {
-            // Si ya existe, rechazamos la inserción local para evitar duplicar folios
-            return false
-        }
-
-        // Si no existe, lo guardamos marcado como pendiente de sincronizar (sincronizado = 0)
+        if (existe) return false
         return guardarOActualizarProducto(product.copy(sincronizado = 0), imagenes)
     }
 
     fun autenticarUsuario(correo: String, pass: String): User? {
-        val db = readableDatabase
-        val cursor = db.rawQuery(
+        val cursor = readableDatabase.rawQuery(
             "SELECT * FROM USUARIO WHERE correo = ? AND contrasena = ?",
             arrayOf(correo, pass)
         )
         var user: User? = null
-        if (cursor.moveToFirst()) {
-            user = User(
-                idUsuario = cursor.getInt(cursor.getColumnIndexOrThrow("id_usuario")),
-                nombre = cursor.getString(cursor.getColumnIndexOrThrow("nombre")),
-                apellidos = cursor.getString(cursor.getColumnIndexOrThrow("apellidos")),
-                alias = cursor.getString(cursor.getColumnIndexOrThrow("alias")),
-                correo = cursor.getString(cursor.getColumnIndexOrThrow("correo")),
-                contrasenaHash = cursor.getString(cursor.getColumnIndexOrThrow("contrasena")),
-                telefono = cursor.getString(cursor.getColumnIndexOrThrow("telefono")),
-                direccion = cursor.getString(cursor.getColumnIndexOrThrow("direccion")),
-                avatarBlob = cursor.getBlob(cursor.getColumnIndexOrThrow("avatar_blob"))
-            )
-        }
+        if (cursor.moveToFirst()) user = cursorToUser(cursor)
         cursor.close()
         return user
     }
@@ -215,14 +278,12 @@ class StorageDbHelper private constructor(context: Context) :
             if (!nuevaPass.isNullOrEmpty()) put("contrasena", nuevaPass)
             if (nuevoAvatar != null) put("avatar_blob", nuevoAvatar)
         }
-        val filas = db.update("USUARIO", values, "correo = ?", arrayOf(correo))
-        return filas > 0
+        return db.update("USUARIO", values, "correo = ?", arrayOf(correo)) > 0
     }
-
-    // ==================== OPERACIONES DE PRODUCTOS E IMÁGENES ====================
 
     fun guardarOActualizarProducto(product: Product, imagenes: List<ByteArray>): Boolean {
         val db = writableDatabase
+        val imagenesExistentes = obtenerImagenesProducto(product.sku)
         db.beginTransaction()
         return try {
             val values = ContentValues().apply {
@@ -240,24 +301,33 @@ class StorageDbHelper private constructor(context: Context) :
                 put("sincronizado", 0)
                 put("correo_usuario_creador", product.correoUsuarioCreador)
             }
-
             db.insertWithOnConflict("PRODUCTO", null, values, SQLiteDatabase.CONFLICT_REPLACE)
-
             if (imagenes.isNotEmpty()) {
                 db.delete("IMAGEN_PRODUCTO", "sku_producto = ?", arrayOf(product.sku))
                 val ahora = obtenerFechaActual()
                 imagenes.forEachIndexed { index, bytes ->
+                    val anterior = imagenesExistentes.getOrNull(index)
+                    val conservarMetadatos = anterior != null && anterior.imagenBlob.contentEquals(bytes)
+                    val descripcion = if (conservarMetadatos) {
+                        anterior!!.descripcion.ifBlank { "Imagen ${index + 1} de ${product.nombre}" }
+                    } else {
+                        "Imagen ${index + 1} de ${product.nombre}"
+                    }
+                    val fechaCreacion = if (conservarMetadatos) {
+                        anterior!!.fechaCreacion.ifBlank { ahora }
+                    } else {
+                        ahora
+                    }
                     val imgValues = ContentValues().apply {
                         put("sku_producto", product.sku)
                         put("imagen_blob", bytes)
-                        put("descripcion", "Imagen ${index + 1} de ${product.nombre}")
-                        put("fecha_creacion", ahora)
+                        put("descripcion", descripcion)
+                        put("fecha_creacion", fechaCreacion)
                         put("fecha_modificacion", ahora)
                     }
                     db.insert("IMAGEN_PRODUCTO", null, imgValues)
                 }
             }
-
             db.setTransactionSuccessful()
             true
         } catch (e: Exception) {
@@ -270,9 +340,7 @@ class StorageDbHelper private constructor(context: Context) :
 
     fun obtenerTodosLosProductos(): List<ProductoItem> {
         val lista = mutableListOf<ProductoItem>()
-        val db = readableDatabase
-        val cursor = db.rawQuery("SELECT * FROM PRODUCTO", null)
-
+        val cursor = readableDatabase.rawQuery("SELECT * FROM PRODUCTO", null)
         if (cursor.moveToFirst()) {
             do {
                 val sku = cursor.getString(cursor.getColumnIndexOrThrow("sku"))
@@ -282,10 +350,11 @@ class StorageDbHelper private constructor(context: Context) :
                 val existencias = cursor.getInt(cursor.getColumnIndexOrThrow("existencias"))
                 val puntoReorden = cursor.getInt(cursor.getColumnIndexOrThrow("punto_reorden"))
                 val estado = cursor.getString(cursor.getColumnIndexOrThrow("estado"))
-
+                val descripcion = cursor.getString(cursor.getColumnIndexOrThrow("descripcion"))
+                val fechaCreacion = cursor.getString(cursor.getColumnIndexOrThrow("fecha_creacion")) ?: ""
+                val fechaModificacion = cursor.getString(cursor.getColumnIndexOrThrow("fecha_modificacion")) ?: ""
                 val miniatura = obtenerImagenesDeProducto(sku).firstOrNull()
                 val nombreMostrar = if (estado == "BORRADOR") "[BORRADOR] $nombre" else nombre
-
                 lista.add(
                     ProductoItem(
                         idProducto = sku.hashCode(),
@@ -295,7 +364,10 @@ class StorageDbHelper private constructor(context: Context) :
                         marca = marca,
                         existencias = existencias,
                         puntoReorden = puntoReorden,
-                        imagenPrincipal = miniatura
+                        imagenPrincipal = miniatura,
+                        descripcion = descripcion,
+                        fechaCreacion = fechaCreacion,
+                        fechaModificacion = fechaModificacion
                     )
                 )
             } while (cursor.moveToNext())
@@ -305,8 +377,7 @@ class StorageDbHelper private constructor(context: Context) :
     }
 
     fun obtenerProductoPorSku(sku: String): Product? {
-        val db = readableDatabase
-        val cursor = db.rawQuery("SELECT * FROM PRODUCTO WHERE sku = ?", arrayOf(sku))
+        val cursor = readableDatabase.rawQuery("SELECT * FROM PRODUCTO WHERE sku = ?", arrayOf(sku))
         var prod: Product? = null
         if (cursor.moveToFirst()) {
             prod = Product(
@@ -329,19 +400,33 @@ class StorageDbHelper private constructor(context: Context) :
         return prod
     }
 
-    fun obtenerImagenesDeProducto(sku: String): List<ByteArray> {
-        val fotos = mutableListOf<ByteArray>()
-        val db = readableDatabase
-        val cursor = db.rawQuery("SELECT imagen_blob FROM IMAGEN_PRODUCTO WHERE sku_producto = ?", arrayOf(sku))
+    fun obtenerImagenesProducto(sku: String): List<ProductImage> {
+        val imagenes = mutableListOf<ProductImage>()
+        val cursor = readableDatabase.rawQuery(
+            "SELECT id_imagen, sku_producto, imagen_blob, descripcion, fecha_creacion, fecha_modificacion " +
+                "FROM IMAGEN_PRODUCTO WHERE sku_producto = ? ORDER BY id_imagen",
+            arrayOf(sku)
+        )
         if (cursor.moveToFirst()) {
             do {
-                val blob = cursor.getBlob(0)
-                if (blob != null) fotos.add(blob)
+                imagenes.add(
+                    ProductImage(
+                        idImagen = cursor.getInt(cursor.getColumnIndexOrThrow("id_imagen")),
+                        skuProducto = cursor.getString(cursor.getColumnIndexOrThrow("sku_producto")),
+                        imagenBlob = cursor.getBlob(cursor.getColumnIndexOrThrow("imagen_blob")) ?: ByteArray(0),
+                        descripcion = cursor.getString(cursor.getColumnIndexOrThrow("descripcion")) ?: "Imagen de producto",
+                        fechaCreacion = cursor.getString(cursor.getColumnIndexOrThrow("fecha_creacion")) ?: "",
+                        fechaModificacion = cursor.getString(cursor.getColumnIndexOrThrow("fecha_modificacion")) ?: ""
+                    )
+                )
             } while (cursor.moveToNext())
         }
         cursor.close()
-        return fotos
+        return imagenes
     }
+
+    fun obtenerImagenesDeProducto(sku: String): List<ByteArray> =
+        obtenerImagenesProducto(sku).map { it.imagenBlob }
 
     fun eliminarProducto(sku: String): Boolean {
         val db = writableDatabase
@@ -349,8 +434,6 @@ class StorageDbHelper private constructor(context: Context) :
         db.delete("MOVIMIENTO_INVENTARIO", "sku_producto = ?", arrayOf(sku))
         return db.delete("PRODUCTO", "sku = ?", arrayOf(sku)) > 0
     }
-
-    // ==================== OPERACIONES DE INVENTARIO (ENTRADAS / SALIDAS) ====================
 
     fun registrarMovimiento(sku: String, correoUsuario: String, tipo: String, cantidad: Int, nuevoStock: Int): Boolean {
         val db = writableDatabase
@@ -363,7 +446,6 @@ class StorageDbHelper private constructor(context: Context) :
                 put("sincronizado", 0)
             }
             db.update("PRODUCTO", prodValues, "sku = ?", arrayOf(sku))
-
             val movValues = ContentValues().apply {
                 put("sku_producto", sku)
                 put("correo_usuario", correoUsuario)
@@ -373,7 +455,6 @@ class StorageDbHelper private constructor(context: Context) :
                 put("sincronizado", 0)
             }
             db.insert("MOVIMIENTO_INVENTARIO", null, movValues)
-
             db.setTransactionSuccessful()
             true
         } catch (e: Exception) {
@@ -383,31 +464,27 @@ class StorageDbHelper private constructor(context: Context) :
             db.endTransaction()
         }
     }
-    // ==================== CONTROL DE SINCRONIZACIÓN (OFFLINE -> ONLINE) ====================
 
     fun obtenerProductosNoSincronizados(): List<Product> {
         val lista = mutableListOf<Product>()
-        val db = readableDatabase
-        val cursor = db.rawQuery("SELECT * FROM PRODUCTO WHERE sincronizado = 0", null)
+        val cursor = readableDatabase.rawQuery("SELECT * FROM PRODUCTO WHERE sincronizado = 0", null)
         if (cursor.moveToFirst()) {
             do {
-                lista.add(
-                    Product(
-                        sku = cursor.getString(cursor.getColumnIndexOrThrow("sku")),
-                        nombre = cursor.getString(cursor.getColumnIndexOrThrow("nombre")),
-                        categoria = cursor.getString(cursor.getColumnIndexOrThrow("categoria")),
-                        marca = cursor.getString(cursor.getColumnIndexOrThrow("marca")),
-                        modelo = cursor.getString(cursor.getColumnIndexOrThrow("modelo")),
-                        existencias = cursor.getInt(cursor.getColumnIndexOrThrow("existencias")),
-                        puntoReorden = cursor.getInt(cursor.getColumnIndexOrThrow("punto_reorden")),
-                        descripcion = cursor.getString(cursor.getColumnIndexOrThrow("descripcion")),
-                        estado = cursor.getString(cursor.getColumnIndexOrThrow("estado")),
-                        fechaCreacion = cursor.getString(cursor.getColumnIndexOrThrow("fecha_creacion")),
-                        fechaModificacion = cursor.getString(cursor.getColumnIndexOrThrow("fecha_modificacion")),
-                        sincronizado = 0,
-                        correoUsuarioCreador = cursor.getString(cursor.getColumnIndexOrThrow("correo_usuario_creador"))
-                    )
-                )
+                lista.add(Product(
+                    sku = cursor.getString(cursor.getColumnIndexOrThrow("sku")),
+                    nombre = cursor.getString(cursor.getColumnIndexOrThrow("nombre")),
+                    categoria = cursor.getString(cursor.getColumnIndexOrThrow("categoria")),
+                    marca = cursor.getString(cursor.getColumnIndexOrThrow("marca")),
+                    modelo = cursor.getString(cursor.getColumnIndexOrThrow("modelo")),
+                    existencias = cursor.getInt(cursor.getColumnIndexOrThrow("existencias")),
+                    puntoReorden = cursor.getInt(cursor.getColumnIndexOrThrow("punto_reorden")),
+                    descripcion = cursor.getString(cursor.getColumnIndexOrThrow("descripcion")),
+                    estado = cursor.getString(cursor.getColumnIndexOrThrow("estado")),
+                    fechaCreacion = cursor.getString(cursor.getColumnIndexOrThrow("fecha_creacion")),
+                    fechaModificacion = cursor.getString(cursor.getColumnIndexOrThrow("fecha_modificacion")),
+                    sincronizado = 0,
+                    correoUsuarioCreador = cursor.getString(cursor.getColumnIndexOrThrow("correo_usuario_creador"))
+                ))
             } while (cursor.moveToNext())
         }
         cursor.close()
@@ -421,21 +498,18 @@ class StorageDbHelper private constructor(context: Context) :
 
     fun obtenerMovimientosNoSincronizados(): List<InventoryMovement> {
         val lista = mutableListOf<InventoryMovement>()
-        val db = readableDatabase
-        val cursor = db.rawQuery("SELECT * FROM MOVIMIENTO_INVENTARIO WHERE sincronizado = 0", null)
+        val cursor = readableDatabase.rawQuery("SELECT * FROM MOVIMIENTO_INVENTARIO WHERE sincronizado = 0", null)
         if (cursor.moveToFirst()) {
             do {
-                lista.add(
-                    InventoryMovement(
-                        idMovimiento = cursor.getInt(cursor.getColumnIndexOrThrow("id_movimiento")),
-                        skuProducto = cursor.getString(cursor.getColumnIndexOrThrow("sku_producto")),
-                        correoUsuario = cursor.getString(cursor.getColumnIndexOrThrow("correo_usuario")),
-                        tipoMovimiento = cursor.getString(cursor.getColumnIndexOrThrow("tipo_movimiento")),
-                        cantidad = cursor.getInt(cursor.getColumnIndexOrThrow("cantidad")),
-                        fechaHora = cursor.getString(cursor.getColumnIndexOrThrow("fecha_hora")),
-                        sincronizado = 0
-                    )
-                )
+                lista.add(InventoryMovement(
+                    idMovimiento = cursor.getInt(cursor.getColumnIndexOrThrow("id_movimiento")),
+                    skuProducto = cursor.getString(cursor.getColumnIndexOrThrow("sku_producto")),
+                    correoUsuario = cursor.getString(cursor.getColumnIndexOrThrow("correo_usuario")),
+                    tipoMovimiento = cursor.getString(cursor.getColumnIndexOrThrow("tipo_movimiento")),
+                    cantidad = cursor.getInt(cursor.getColumnIndexOrThrow("cantidad")),
+                    fechaHora = cursor.getString(cursor.getColumnIndexOrThrow("fecha_hora")),
+                    sincronizado = 0
+                ))
             } while (cursor.moveToNext())
         }
         cursor.close()

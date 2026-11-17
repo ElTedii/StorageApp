@@ -1,4 +1,4 @@
-package com.example.storageapp.network
+﻿package com.example.storageapp.network
 
 import android.util.Base64
 import com.example.storageapp.model.InventoryMovement
@@ -9,13 +9,28 @@ import org.json.JSONObject
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
+
+sealed class RemoteUserResult {
+    data object Success : RemoteUserResult()
+    data object Conflict : RemoteUserResult()
+    data object NetworkError : RemoteUserResult()
+    data class ServerError(val code: Int) : RemoteUserResult()
+}
+
+sealed class EmailCheckResult {
+    data object Available : EmailCheckResult()
+    data object Exists : EmailCheckResult()
+    data object NetworkError : EmailCheckResult()
+    data class ServerError(val code: Int) : EmailCheckResult()
+}
 
 // PATRÓN SINGLETON: Cliente HTTP centralizado para comunicación con el servidor Fedora Linux
 object ApiClient {
 
     private const val BASE_URL = "https://fedorasv-tedss.tailc9606a.ts.net/api"
 
-    private fun postJson(endpoint: String, jsonBody: JSONObject): Boolean {
+    private fun postJson(endpoint: String, jsonBody: JSONObject): Pair<Int, String?> {
         var conn: HttpURLConnection? = null
         return try {
             val url = URL("$BASE_URL$endpoint")
@@ -30,10 +45,14 @@ object ApiClient {
                 writer.write(jsonBody.toString())
                 writer.flush()
             }
-            conn.responseCode in 200..299
+            val code = conn.responseCode
+            val body = try {
+                (if (code in 200..299) conn.inputStream else conn.errorStream)?.bufferedReader()?.use { it.readText() }
+            } catch (_: Exception) { null }
+            Pair(code, body)
         } catch (e: Exception) {
             e.printStackTrace()
-            false
+            Pair(-1, e.message)
         } finally {
             conn?.disconnect()
         }
@@ -42,7 +61,7 @@ object ApiClient {
     fun eliminarProductoRemoto(sku: String): Boolean {
         var conn: HttpURLConnection? = null
         return try {
-            val skuEncoded = java.net.URLEncoder.encode(sku, "UTF-8")
+            val skuEncoded = URLEncoder.encode(sku, "UTF-8")
             val url = URL("$BASE_URL/productos/$skuEncoded")
             conn = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "DELETE"
@@ -58,7 +77,33 @@ object ApiClient {
         }
     }
 
-    fun sincronizarUsuario(user: User): Boolean {
+    fun verificarCorreoDisponible(correo: String): EmailCheckResult {
+        var conn: HttpURLConnection? = null
+        return try {
+            val encoded = URLEncoder.encode(correo, "UTF-8")
+            val url = URL("$BASE_URL/usuarios/existe?correo=$encoded")
+            conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 8000
+                readTimeout = 10000
+            }
+            val code = conn.responseCode
+            if (code in 200..299) {
+                val text = conn.inputStream.bufferedReader().use { it.readText() }
+                val json = JSONObject(text)
+                if (json.optBoolean("existe", false)) EmailCheckResult.Exists else EmailCheckResult.Available
+            } else {
+                EmailCheckResult.ServerError(code)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            EmailCheckResult.NetworkError
+        } finally {
+            conn?.disconnect()
+        }
+    }
+
+    fun sincronizarUsuario(user: User): RemoteUserResult {
         val json = JSONObject().apply {
             put("nombre", user.nombre)
             put("apellidos", user.apellidos)
@@ -71,7 +116,13 @@ object ApiClient {
                 put("avatarBase64", Base64.encodeToString(user.avatarBlob, Base64.NO_WRAP))
             }
         }
-        return postJson("/usuarios/sync", json)
+        val (code, _) = postJson("/usuarios/sync", json)
+        return when {
+            code in 200..299 -> RemoteUserResult.Success
+            code == 409 -> RemoteUserResult.Conflict
+            code == -1 -> RemoteUserResult.NetworkError
+            else -> RemoteUserResult.ServerError(code)
+        }
     }
 
     fun sincronizarProducto(product: Product, imagenes: List<ByteArray>): Boolean {
@@ -95,7 +146,7 @@ object ApiClient {
             put("correoUsuarioCreador", product.correoUsuarioCreador ?: "admin@storageapp.com")
             put("imagenesBase64", jsonArrayImgs)
         }
-        return postJson("/productos/sync", json)
+        return postJson("/productos/sync", json).first in 200..299
     }
 
     fun sincronizarMovimiento(mov: InventoryMovement): Boolean {
@@ -106,7 +157,7 @@ object ApiClient {
             put("cantidad", mov.cantidad)
             put("fechaHora", mov.fechaHora)
         }
-        return postJson("/movimientos/sync", json)
+        return postJson("/movimientos/sync", json).first in 200..299
     }
 
     fun descargarProductosRemotos(): List<Pair<Product, List<ByteArray>>> {

@@ -9,7 +9,9 @@ data class User(
     val contrasenaHash: String,
     val telefono: String? = null,
     val direccion: String? = null,
-    val avatarBlob: ByteArray? = null
+    val avatarBlob: ByteArray? = null,
+    val estadoRegistro: String = "CONFIRMADO",
+    val sincronizado: Int = 1
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

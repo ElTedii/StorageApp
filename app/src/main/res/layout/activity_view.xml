@@ -13,13 +13,13 @@
         android:textSize="22sp"
         android:textStyle="bold"
         android:layout_marginBottom="12dp" />
-a
+
     <!-- Buscador de productos -->
     <EditText
         android:id="@+id/etBuscar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Buscar por nombre, SKU o categoría..."
+        android:hint="Buscar por título, descripción, SKU o categoría..."
         android:drawableStart="@android:drawable/ic_menu_search"
         android:inputType="text"
         android:layout_marginBottom="8dp" />
@@ -46,14 +46,45 @@ a
             android:spinnerMode="dropdown" />
     </LinearLayout>
 
-    <!-- Lista dinámica de productos (RecyclerView) -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvProductos"
+    <!-- Lista dinámica de productos (RecyclerView) con indicador de sincronización -->
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:scrollbars="vertical"
-        android:layout_marginBottom="12dp" />
+        android:layout_marginBottom="12dp">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvProductos"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scrollbars="vertical" />
+
+        <LinearLayout
+            android:id="@+id/llCatalogoCargando"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:background="#E6FFFFFF"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:visibility="gone">
+
+            <ProgressBar
+                android:id="@+id/pbCatalogo"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:indeterminate="true" />
+
+            <TextView
+                android:id="@+id/tvCatalogoSync"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Sincronizando catálogo..."
+                android:textColor="#212121" />
+        </LinearLayout>
+    </FrameLayout>
 
     <Button
         android:id="@+id/btnVolverConsulta"
