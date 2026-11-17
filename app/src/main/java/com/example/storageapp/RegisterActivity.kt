@@ -1,16 +1,25 @@
 package com.example.storageapp
 
 import android.os.Bundle
+import android.util.Patterns
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import com.example.storageapp.data.StorageDbHelper
 import com.example.storageapp.model.User
+import com.example.storageapp.network.ApiClient
+import com.example.storageapp.network.EmailCheckResult
+import com.example.storageapp.network.RemoteUserResult
 import com.example.storageapp.utils.ImageUtils
 import com.example.storageapp.utils.SessionManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.Locale
 
 class RegisterActivity : AppCompatActivity() {
 
@@ -44,33 +53,34 @@ class RegisterActivity : AppCompatActivity() {
         val btnRegistrar = findViewById<Button>(R.id.btnRegistrarCuenta)
         val btnVolver = findViewById<Button>(R.id.btnVolverLogin)
 
-        btnSeleccionarAvatar.setOnClickListener {
-            pickImageLauncher.launch("image/*")
-        }
+        btnSeleccionarAvatar.setOnClickListener { pickImageLauncher.launch("image/*") }
+        btnVolver.setOnClickListener { finish() }
 
         btnRegistrar.setOnClickListener {
             val nombre = etNombre.text.toString().trim()
             val apellidos = etApellidos.text.toString().trim()
             val alias = etAlias.text.toString().trim()
-            val correo = etCorreo.text.toString().trim()
+            val correo = etCorreo.text.toString().trim().lowercase(Locale.getDefault())
             val pass = etPassword.text.toString().trim()
             val tel = etTelefono.text.toString().trim()
             val dir = etDireccion.text.toString().trim()
 
-            if (nombre.isEmpty() || apellidos.isEmpty() || alias.isEmpty() || correo.isEmpty()) {
-                Toast.makeText(this, "Completa todos los campos obligatorios (*)", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
+            var valido = true
+            if (nombre.isEmpty()) { etNombre.error = "Requerido"; valido = false }
+            if (apellidos.isEmpty()) { etApellidos.error = "Requerido"; valido = false }
+            if (alias.isEmpty()) { etAlias.error = "Requerido"; valido = false }
+            if (correo.isEmpty() || !Patterns.EMAIL_ADDRESS.matcher(correo).matches()) {
+                etCorreo.error = "Correo inválido"; valido = false
             }
-
             val passwordPattern = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{10,}$".toRegex()
             if (!pass.matches(passwordPattern)) {
-                Toast.makeText(
-                    this,
-                    "La contraseña requiere mín. 10 caracteres, 1 mayúscula, 1 minúscula y 1 número",
-                    Toast.LENGTH_LONG
-                ).show()
-                return@setOnClickListener
+                etPassword.error = "Mín. 10 caracteres, 1 mayúscula, 1 minúscula y 1 número"; valido = false
             }
+            if (avatarBytes == null) {
+                Toast.makeText(this, "Selecciona un avatar para continuar", Toast.LENGTH_SHORT).show()
+                valido = false
+            }
+            if (!valido) return@setOnClickListener
 
             val nuevoUsuario = User(
                 nombre = nombre,
@@ -83,16 +93,60 @@ class RegisterActivity : AppCompatActivity() {
                 avatarBlob = avatarBytes
             )
 
-            val exito = StorageDbHelper.getInstance(this).registrarUsuario(nuevoUsuario)
-            if (exito) {
-                SessionManager.guardarSesion(this, correo, alias, "$nombre $apellidos", avatarBytes)
-                Toast.makeText(this, "Usuario guardado en SQLite exitosamente", Toast.LENGTH_SHORT).show()
-                finish()
-            } else {
-                Toast.makeText(this, "Error: El correo ya está registrado", Toast.LENGTH_LONG).show()
+            btnRegistrar.isEnabled = false
+            btnRegistrar.text = "Sincronizando con servidor..."
+
+            lifecycleScope.launch {
+                val db = StorageDbHelper.getInstance(this@RegisterActivity)
+                val mensaje = withContext(Dispatchers.IO) {
+
+                    when (val check = ApiClient.verificarCorreoDisponible(correo)) {
+                        is EmailCheckResult.Exists -> "REMOTE_EXISTS"
+                        is EmailCheckResult.ServerError -> "CHECK_ERR_${check.code}"
+                        is EmailCheckResult.NetworkError -> {
+                            db.registrarUsuario(nuevoUsuario)
+                            "OFFLINE_SAVED"
+                        }
+                        is EmailCheckResult.Available -> {
+                            when (val sync = ApiClient.sincronizarUsuario(nuevoUsuario)) {
+                                is RemoteUserResult.Success -> {
+                                    db.registrarUsuario(nuevoUsuario)
+                                    "ONLINE_OK"
+                                }
+                                is RemoteUserResult.Conflict -> "REMOTE_EXISTS"
+                                is RemoteUserResult.ServerError -> "SYNC_ERR_${sync.code}"
+                                is RemoteUserResult.NetworkError -> {
+                                    db.registrarUsuario(nuevoUsuario)
+                                    "OFFLINE_SAVED"
+                                }
+                            }
+                        }
+                    }
+                }
+
+                btnRegistrar.isEnabled = true
+                btnRegistrar.text = "Crear Cuenta"
+
+                when {
+                    mensaje == "ONLINE_OK" -> {
+                        SessionManager.guardarSesion(this@RegisterActivity, correo, alias, "$nombre $apellidos", avatarBytes)
+                        Toast.makeText(this@RegisterActivity, "¡Cuenta creada y guardada en MySQL!", Toast.LENGTH_LONG).show()
+                        finish()
+                    }
+                    mensaje == "OFFLINE_SAVED" -> {
+                        Toast.makeText(this@RegisterActivity, "Sin red: guardado en SQLite local (pendiente)", Toast.LENGTH_LONG).show()
+                        finish()
+                    }
+                    mensaje == "LOCAL_EXISTS" || mensaje == "REMOTE_EXISTS" -> {
+                        etCorreo.error = "El correo ya está registrado"
+                        Toast.makeText(this@RegisterActivity, "Ese correo ya existe en la base de datos", Toast.LENGTH_LONG).show()
+                    }
+                    else -> {
+                        // Muestra el código exacto si el servidor devolvió 404, 413 o 500
+                        Toast.makeText(this@RegisterActivity, "Error del servidor ($mensaje)", Toast.LENGTH_LONG).show()
+                    }
+                }
             }
         }
-
-        btnVolver.setOnClickListener { finish() }
     }
 }
